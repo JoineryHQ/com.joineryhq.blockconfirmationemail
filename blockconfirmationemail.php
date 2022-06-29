@@ -6,6 +6,57 @@ use CRM_Blockconfirmationemail_ExtensionUtil as E;
 // phpcs:enable
 
 /**
+ * A string to be used as a marker in all subject lines for mailing_component
+ * entities which should be blocked during sending. 
+ * 
+ * This string aims to be 
+ * - unlikely to be entered manually through the UI (to avoid false positives)
+ * - hard to see (to avoid confusing the end user).
+ * As such, it consists of 8 "Zero Width No-Break Space" characters, a.k.a "BOM"
+ * (see https://en.wikipedia.org/wiki/Byte_order_mark). 1 would probably be sufficient,
+ * but why not 8?
+ */
+const BLOCKCONFIRMATIONEMAIL_SUBJECT_MARKER = "\u{FEFF}\u{FEFF}\u{FEFF}\u{FEFF}\u{FEFF}\u{FEFF}\u{FEFF}\u{FEFF}";
+
+/**
+ * Implements hook_civicrm_postSave_civicrm_mailing_component().
+ */
+function blockconfirmationemail_civicrm_postSave_civicrm_mailing_component($dao) {
+  // After a mailing_component entity has been saved:
+  if ($dao->tableName() == 'civicrm_mailing_component') {
+    // If the mailing_component has component_type of the relevant value:
+    $blockedComponentTypes = array('unsubscribe','resubscribe','optout');
+    if (in_array(strtolower($dao->component_type), $blockedComponentTypes)) {
+      // Append our marker to the subject line and save via direct SQL query
+      // (saving via api would create an infinite loop).
+      $queryParams = [
+        '1' => [BLOCKCONFIRMATIONEMAIL_SUBJECT_MARKER, 'String'],
+        '2' => [$dao->id, 'String'],
+      ];
+      $query = "
+        UPDATE civicrm_mailing_component
+        SET subject = CONCAT(subject, %1)
+        WHERE
+          id = %2
+          AND RIGHT(subject, 8) != %1
+      ";
+      CRM_Core_DAO::executeQuery($query, $queryParams);
+    }
+  }
+}
+
+/**
+ * Implements hook_civicrm_alterMailParams().
+ */
+function blockconfirmationemail_civicrm_alterMailParams(&$params, $context) {  
+  // If the subject ends with our marker, assume the email is an automated message
+  // of one of the blocked types, and tell $params to abort sending.
+  if (mb_substr($params['subject'], -8) == BLOCKCONFIRMATIONEMAIL_SUBJECT_MARKER) {
+    $params['abortMailSend'] = TRUE;
+  }
+}
+
+/**
  * Implements hook_civicrm_config().
  *
  * @link https://docs.civicrm.org/dev/en/latest/hooks/hook_civicrm_config/
