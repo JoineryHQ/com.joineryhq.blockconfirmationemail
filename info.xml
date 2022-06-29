@@ -1,0 +1,35 @@
+<?xml version="1.0"?>
+<extension key="com.joineryhq.blockconfirmationemail" type="module">
+  <file>blockconfirmationemail</file>
+  <name>Block Confirmation Emails</name>
+  <description>CiviCRM extension to prevent sending of automatic notification emails for: Mailing group unsubscribe; Mailing group re-subscribe; and Email opt-out</description>
+  <license>GPL-3.0</license>
+  <maintainer>
+    <author>Allen Shaw</author>
+    <email>allen@JoineryHQ.com</email>
+  </maintainer>
+  <urls>
+    <url desc="Main Extension Page">https://github.com/JoineryHQ/com.joineryhq.blockconfirmationemail</url>
+    <url desc="Documentation">https://github.com/JoineryHQ/com.joineryhq.blockconfirmationemail</url>
+    <url desc="Support">https://github.com/JoineryHQ/com.joineryhq.blockconfirmationemail/issues</url>
+    <url desc="Licensing">http://www.gnu.org/licenses/gpl-3.0.html</url>
+  </urls>
+  <releaseDate>2022-06-29</releaseDate>
+  <version>0.1.0</version>
+  <develStage>beta</develStage>
+  <compatibility>
+    <ver>5.0</ver>
+  </compatibility>
+  <comments>Developed for Korlon by Joinery</comments>
+  <classloader>
+    <psr4 prefix="Civi\" path="Civi"/>
+  </classloader>
+  <civix>
+    <namespace>CRM/Blockconfirmationemail</namespace>
+    <format>22.05.0</format>
+    <angularModule>crmBlockconfirmationemail</angularModule>
+  </civix>
+  <mixins>
+    <mixin>setting-php@1.0.0</mixin>
+  </mixins>
+</extension>
