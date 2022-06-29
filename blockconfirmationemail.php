@@ -12,11 +12,77 @@ use CRM_Blockconfirmationemail_ExtensionUtil as E;
  * This string aims to be 
  * - unlikely to be entered manually through the UI (to avoid false positives)
  * - hard to see (to avoid confusing the end user).
- * As such, it consists of 8 "Zero Width No-Break Space" characters, a.k.a "BOM"
- * (see https://en.wikipedia.org/wiki/Byte_order_mark). 1 would probably be sufficient,
+ * As such, it consists of 8 "Zero Width Space" characters, a.k.a "ZWSP"
+ * (see https://en.wikipedia.org/wiki/Zero-width_space ). 1 would probably be sufficient,
  * but why not 8?
  */
-const BLOCKCONFIRMATIONEMAIL_SUBJECT_MARKER = "\u{FEFF}\u{FEFF}\u{FEFF}\u{FEFF}\u{FEFF}\u{FEFF}\u{FEFF}\u{FEFF}";
+const BLOCKCONFIRMATIONEMAIL_SUBJECT_MARKER = "\u{200B}\u{200B}\u{200B}\u{200B}\u{200B}\u{200B}\u{200B}\u{200B}";
+
+/**
+ * Implementation of hook_civicrm_check
+ *
+ * Add a check to the status page/System.check to report status of mailing component templates.
+ */
+function blockconfirmationemail_civicrm_check(&$messages, $statusNames, $includeDisabled) {
+
+  // Early return if $statusNames doesn't call for our check
+  if ($statusNames && !in_array('blockconfirmationemail_marked_subjects', $statusNames)) {
+    return;
+  }
+
+  // If performing your check is resource-intensive, consider bypassing if disabled
+  if (!$includeDisabled) {
+    $disabled = \Civi\Api4\StatusPreference::get()
+      ->setCheckPermissions(FALSE)
+      ->addWhere('is_active', '=', FALSE)
+      ->addWhere('domain_id', '=', 'current_domain')
+      ->addWhere('name', '=', 'blockconfirmationemail_marked_subjects')
+      ->execute()->count();
+    if ($disabled) {
+      return;
+    }
+  }
+
+  $queryParams = [
+    '1' => [BLOCKCONFIRMATIONEMAIL_SUBJECT_MARKER, 'String'],
+  ];
+  $query = "
+    SELECT id, name, component_type, (RIGHT(subject, 8) = %1) as is_marked
+    FROM civicrm_mailing_component
+    WHERE
+      component_type IN ('unsubscribe','resubscribe','optout')
+  ";
+  $dao = CRM_Core_DAO::executeQuery($query, $queryParams);
+  $markedItems = $unmarkedItems = [];
+  while ($dao->fetch()) {
+    $item = E::ts('"%1" (component type="%3", id="%2")', ['%1' => $dao->name, '%2' => $dao->id, '%3' => $dao->component_type]);
+    if ($dao->is_marked) {
+      $markedItems[] = $item;
+    }
+    else {
+      $unmarkedItems[] = $item;
+    }
+  }
+
+  if (count($unmarkedItems)) {
+    $messages[] = new CRM_Utils_Check_Message(
+      'blockconfirmationemail_marked_subjects',
+      E::ts('The folowing Automated Message templates are NOT correctly prevented from being sent by the %1 extension. You may try uninstalling and re-installing the extension.', ['1' => E::SHORT_NAME]) . '<ul><li>' . implode('</li><li>', $unmarkedItems) . '</li></ul>',
+      E::ts('Automated Message Templates: not flagged to prevent sending'),
+      \Psr\Log\LogLevel::ERROR,
+      'fa-envelope'
+    );
+  }
+  if (count($markedItems)) {
+    $messages[] = new CRM_Utils_Check_Message(
+      'blockconfirmationemail_marked_subjects',
+      E::ts('The folowing Automated Message templates are prevented from being sent by the %1 extension. This is by design.', ['1' => E::SHORT_NAME]) . '<ul><li>' . implode('</li><li>', $markedItems) . '</li></ul>',
+      E::ts('Automated Message Templates: flagged to prevent sending'),
+      \Psr\Log\LogLevel::INFO,
+      'fa-envelope'
+    );
+  }
+}
 
 /**
  * Implements hook_civicrm_postSave_civicrm_mailing_component().
@@ -52,6 +118,7 @@ function blockconfirmationemail_civicrm_alterMailParams(&$params, $context) {
   // If the subject ends with our marker, assume the email is an automated message
   // of one of the blocked types, and tell $params to abort sending.
   if (mb_substr($params['subject'], -8) == BLOCKCONFIRMATIONEMAIL_SUBJECT_MARKER) {
+  CRM_Core_Error::debug_log_message("blockconfirmationemail: Blocked email to '{$params['toEmail']}', per subject '{$params['subject']}'");
     $params['abortMailSend'] = TRUE;
   }
 }
