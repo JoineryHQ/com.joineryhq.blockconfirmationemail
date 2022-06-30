@@ -7,19 +7,28 @@ use CRM_Blockconfirmationemail_ExtensionUtil as E;
 
 /**
  * A string to be used as a marker in all subject lines for mailing_component
- * entities which should be blocked during sending. 
- * 
- * This string aims to be 
- * - unlikely to be entered manually through the UI (to avoid false positives)
- * - hard to see (to avoid confusing the end user).
- * As such, it consists of 8 "Zero Width Space" characters, a.k.a "ZWSP"
- * (see https://en.wikipedia.org/wiki/Zero-width_space ). 1 would probably be sufficient,
- * but why not 8?
+ * entities which should be blocked during sending.
  */
-const BLOCKCONFIRMATIONEMAIL_SUBJECT_MARKER = "\u{200B}\u{200B}\u{200B}\u{200B}\u{200B}\u{200B}\u{200B}\u{200B}";
+const BLOCKCONFIRMATIONEMAIL_SUBJECT_MARKER = "{BLOCKCONFIRMATIONEMAIL_DONOT_SEND}";
 
 /**
- * Implementation of hook_civicrm_check
+ * Implementation of hook_civicrm_alterTemplateFile().
+ */
+function blockconfirmationemail_civicrm_alterTemplateFile($formName, &$form, $context, &$tplName) {
+  if ($tplName == "CRM/Mailing/Page/Component.tpl") {
+    // For the Headers, Footers, and Automated Messages page, use our own template
+    // which adds some help text at the top expaining the BLOCKCONFIRMATIONEMAIL_SUBJECT_MARKER
+    // in subject lines.
+    $tplName = 'CRM/Blockconfirmationemail/Mailing/Page/Component.tpl';
+    
+    $ext = CRM_Extension_Info::loadFromFile(E::path('info.xml'));
+    $form->assign('blockconfirmation_ext', (array)$ext);
+    $form->assign('BLOCKCONFIRMATIONEMAIL_SUBJECT_MARKER', BLOCKCONFIRMATIONEMAIL_SUBJECT_MARKER);
+  }
+}
+
+/**
+ * Implementation of hook_civicrm_check().
  *
  * Add a check to the status page/System.check to report status of mailing component templates.
  */
@@ -43,11 +52,13 @@ function blockconfirmationemail_civicrm_check(&$messages, $statusNames, $include
     }
   }
 
+  $ext = CRM_Extension_Info::loadFromFile(E::path('info.xml'));
+  
   $queryParams = [
-    '1' => [BLOCKCONFIRMATIONEMAIL_SUBJECT_MARKER, 'String'],
+    '1' => ['%' . BLOCKCONFIRMATIONEMAIL_SUBJECT_MARKER . '%', 'String'],    
   ];
   $query = "
-    SELECT id, name, component_type, (RIGHT(subject, 8) = %1) as is_marked
+    SELECT id, name, component_type, (subject like %1) as is_marked
     FROM civicrm_mailing_component
     WHERE
       component_type IN ('unsubscribe','resubscribe','optout')
@@ -63,11 +74,11 @@ function blockconfirmationemail_civicrm_check(&$messages, $statusNames, $include
       $unmarkedItems[] = $item;
     }
   }
-
+  
   if (count($unmarkedItems)) {
     $messages[] = new CRM_Utils_Check_Message(
       'blockconfirmationemail_marked_subjects',
-      E::ts('The folowing Automated Message templates are NOT correctly prevented from being sent by the %1 extension. You may try uninstalling and re-installing the extension.', ['1' => E::SHORT_NAME]) . '<ul><li>' . implode('</li><li>', $unmarkedItems) . '</li></ul>',
+      E::ts('The following Automated Message templates are NOT correctly prevented from being sent by the <em>%1</em> extension. You might fix this by uninstalling and re-installing the extension.', ['1' => $ext->label]) . '<ul><li>' . implode('</li><li>', $unmarkedItems) . '</li></ul>',
       E::ts('Automated Message Templates: not flagged to prevent sending'),
       \Psr\Log\LogLevel::ERROR,
       'fa-envelope'
@@ -76,7 +87,7 @@ function blockconfirmationemail_civicrm_check(&$messages, $statusNames, $include
   if (count($markedItems)) {
     $messages[] = new CRM_Utils_Check_Message(
       'blockconfirmationemail_marked_subjects',
-      E::ts('The folowing Automated Message templates are prevented from being sent by the %1 extension. This is by design.', ['1' => E::SHORT_NAME]) . '<ul><li>' . implode('</li><li>', $markedItems) . '</li></ul>',
+      E::ts('The following Automated Message templates are prevented from being sent by the <em>%1</em> extension. This is by design.', ['1' => $ext->label]) . '<ul><li>' . implode('</li><li>', $markedItems) . '</li></ul>',
       E::ts('Automated Message Templates: flagged to prevent sending'),
       \Psr\Log\LogLevel::INFO,
       'fa-envelope'
@@ -98,13 +109,14 @@ function blockconfirmationemail_civicrm_postSave_civicrm_mailing_component($dao)
       $queryParams = [
         '1' => [BLOCKCONFIRMATIONEMAIL_SUBJECT_MARKER, 'String'],
         '2' => [$dao->id, 'String'],
+        '3' => ['%' . BLOCKCONFIRMATIONEMAIL_SUBJECT_MARKER . '%', 'String'],
       ];
       $query = "
         UPDATE civicrm_mailing_component
         SET subject = CONCAT(subject, %1)
         WHERE
           id = %2
-          AND RIGHT(subject, 8) != %1
+          AND subject NOT LIKE %3
       ";
       CRM_Core_DAO::executeQuery($query, $queryParams);
     }
@@ -115,10 +127,10 @@ function blockconfirmationemail_civicrm_postSave_civicrm_mailing_component($dao)
  * Implements hook_civicrm_alterMailParams().
  */
 function blockconfirmationemail_civicrm_alterMailParams(&$params, $context) {  
-  // If the subject ends with our marker, assume the email is an automated message
+  // If the subject contains with our marker, assume the email is an automated message
   // of one of the blocked types, and tell $params to abort sending.
-  if (mb_substr($params['subject'], -8) == BLOCKCONFIRMATIONEMAIL_SUBJECT_MARKER) {
-  CRM_Core_Error::debug_log_message("blockconfirmationemail: Blocked email to '{$params['toEmail']}', per subject '{$params['subject']}'");
+  if (strstr($params['subject'], BLOCKCONFIRMATIONEMAIL_SUBJECT_MARKER) !== FALSE) {
+    CRM_Core_Error::debug_log_message("blockconfirmationemail: Blocked email to '{$params['toEmail']}', per subject '{$params['subject']}'");
     $params['abortMailSend'] = TRUE;
   }
 }

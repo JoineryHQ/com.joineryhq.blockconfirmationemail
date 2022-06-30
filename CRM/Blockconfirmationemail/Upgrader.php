@@ -25,6 +25,7 @@ class CRM_Blockconfirmationemail_Upgrader extends CRM_Blockconfirmationemail_Upg
       // be aborted in blockconfirmationemail_civicrm_alterMailParams().
       $queryParams = [
         '1' => [BLOCKCONFIRMATIONEMAIL_SUBJECT_MARKER, 'String'],
+        '2' => ['%' . BLOCKCONFIRMATIONEMAIL_SUBJECT_MARKER . '%', 'String'],
       ];
       $query = "
         UPDATE civicrm_mailing_component
@@ -32,17 +33,30 @@ class CRM_Blockconfirmationemail_Upgrader extends CRM_Blockconfirmationemail_Upg
         WHERE
           component_type IN ('unsubscribe','resubscribe','optout')
           -- only do this if the subject doesn't already have the marker.
-          AND RIGHT(subject, 8) != %1
+          AND subject not like %2
       ";
-      CRM_Core_DAO::executeQuery($query, $queryParams);     
+      CRM_Core_DAO::executeQuery($query, $queryParams);
    }
 
   /**
    * Example: Run an external SQL script when the module is uninstalled.
    */
-  // public function uninstall() {
-  //  $this->executeSqlFile('sql/myuninstall.sql');
-  // }
+   public function uninstall() {
+      // For all existing mailing_component entities,
+      // remove our special marker from the subject, since that marker will no
+      // longer be relevant.
+      $queryParams = [
+        '1' => [BLOCKCONFIRMATIONEMAIL_SUBJECT_MARKER, 'String'],
+        '2' => ['%' . BLOCKCONFIRMATIONEMAIL_SUBJECT_MARKER . '%', 'String'],
+      ];
+      $query = "
+        UPDATE civicrm_mailing_component
+        SET subject = REPLACE(subject, %1, '')
+        WHERE
+          subject like %2
+      ";
+      CRM_Core_DAO::executeQuery($query, $queryParams);
+   }
 
   /**
    * Example: Run a simple query when a module is enabled.
