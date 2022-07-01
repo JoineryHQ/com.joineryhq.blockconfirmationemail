@@ -16,14 +16,15 @@ const BLOCKCONFIRMATIONEMAIL_SUBJECT_MARKER = "{BLOCKCONFIRMATIONEMAIL_DONOT_SEN
  */
 function blockconfirmationemail_civicrm_alterTemplateFile($formName, &$form, $context, &$tplName) {
   if ($tplName == "CRM/Mailing/Page/Component.tpl") {
-    // For the Headers, Footers, and Automated Messages page, use our own template
-    // which adds some help text at the top expaining the BLOCKCONFIRMATIONEMAIL_SUBJECT_MARKER
-    // in subject lines.
-    $tplName = 'CRM/Blockconfirmationemail/Mailing/Page/Component.tpl';
-    
+    // For the Headers, Footers, and Automated Messages page, add some help text
+    // at the top expaining the BLOCKCONFIRMATIONEMAIL_SUBJECT_MARKER in subject lines.
     $ext = CRM_Extension_Info::loadFromFile(E::path('info.xml'));
-    $form->assign('blockconfirmation_ext', (array)$ext);
-    $form->assign('BLOCKCONFIRMATIONEMAIL_SUBJECT_MARKER', BLOCKCONFIRMATIONEMAIL_SUBJECT_MARKER);
+    $args = [
+      '%1' => BLOCKCONFIRMATIONEMAIL_SUBJECT_MARKER,
+      '%2' => $ext->label,
+    ];
+    $message = E::ts('Automated Message templates of types OptOut, Unsubscribe and Resubscribe have the marker <span style="white-space: nowrap">"%1"</span> appended to their Subject line by the <em>%2</em> extension. The extension will prevent sending of emails with this marker in the Subject line.', $args);
+    CRM_Core_Session::setStatus($message, '', 'no-popup help');
   }
 }
 
