@@ -18,18 +18,20 @@
   <version>0.1.1</version>
   <develStage>beta</develStage>
   <compatibility>
-    <ver>5.0</ver>
+    <ver>5.38</ver>
   </compatibility>
   <comments>Developed for Korlon by Joinery</comments>
   <classloader>
     <psr4 prefix="Civi\" path="Civi"/>
+    <psr0 prefix="CRM_" path="."/>
   </classloader>
   <civix>
     <namespace>CRM/Blockconfirmationemail</namespace>
-    <format>22.05.0</format>
+    <format>23.02.1</format>
     <angularModule>crmBlockconfirmationemail</angularModule>
   </civix>
   <mixins>
     <mixin>setting-php@1.0.0</mixin>
   </mixins>
+  <upgrader>CRM_Blockconfirmationemail_Upgrader</upgrader>
 </extension>
