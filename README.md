@@ -1,4 +1,4 @@
-# CiviCRM: Block Confirmation Emails
+# CiviCRM: Block Subscriber Confirmation Emails
 ## com.joineryhq.blockconfirmationemail
 
 CiviCRM extension to prevent sending of automatic notification emails for

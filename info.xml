@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <extension key="com.joineryhq.blockconfirmationemail" type="module">
   <file>blockconfirmationemail</file>
-  <name>Block Confirmation Emails</name>
+  <name>Block Subscriber Confirmation Emails</name>
   <description>CiviCRM extension to prevent sending of automatic notification emails for: Mailing group unsubscribe; Mailing group re-subscribe; and Email opt-out</description>
   <license>GPL-3.0</license>
   <maintainer>
