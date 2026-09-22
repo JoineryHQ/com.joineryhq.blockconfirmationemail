@@ -103,7 +103,7 @@ function blockconfirmationemail_civicrm_postSave_civicrm_mailing_component($dao)
   // After a mailing_component entity has been saved:
   if ($dao->tableName() == 'civicrm_mailing_component') {
     // If the mailing_component has component_type of the relevant value:
-    $blockedComponentTypes = array('unsubscribe','resubscribe','optout');
+    $blockedComponentTypes = ['unsubscribe','resubscribe','optout'];
     if (in_array(strtolower($dao->component_type), $blockedComponentTypes)) {
       // Append our marker to the subject line and save via direct SQL query
       // (saving via api would create an infinite loop).
